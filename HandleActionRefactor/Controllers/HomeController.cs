@@ -10,7 +10,7 @@ namespace HandleActionRefactor.Controllers
     {
         public ActionResult Index()
         {
-            var vm = new HomeViewModel();   
+            var vm = new HomeViewModel();
             return View(vm);
         }
 
@@ -18,11 +18,14 @@ namespace HandleActionRefactor.Controllers
         public ActionResult Index2(HomeInputModel inputModel)
         {
             if (!ModelState.IsValid)
+            {
                 return Index();
-
+            }
             var result = Invoker.Execute<HomeResponseModel>(inputModel);
             if (result.GotoAbout)
+            {
                 return RedirectToAction("About");
+            }
 
             return RedirectToAction("Index");
         }
@@ -32,10 +35,9 @@ namespace HandleActionRefactor.Controllers
         {
             return Handle(inputModel)
                 .Returning<HomeResponseModel>()
-                .On(x => x.GotoAbout, _ => RedirectToAction("About"))
-                .OnSuccess(_ => RedirectToAction("Index"))
-                .OnError(() => Index());
-
+                //.On(x => x.GotoAbout, _ => RedirectToAction("About"))
+                .OnSuccess(x => RedirectToAction("Index"));
+            //.OnError(() => Index());
         }
 
 

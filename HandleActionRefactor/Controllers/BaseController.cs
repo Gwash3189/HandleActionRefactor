@@ -10,23 +10,26 @@ namespace HandleActionRefactor.Controllers
 
         public CustResult<TINPUT> Handle<TINPUT>(TINPUT inputModel)
         {
-            return new CustResult<TINPUT>(inputModel);
+            return new CustResult<TINPUT>(inputModel, this.Invoker);
         }
     }
 
-    public class CustResult <TINPUT> : ActionResult
+    public class CustResult<TINPUT> : ActionResult
     {
         public TINPUT inputModel { get; set; }
+        public IInvoker Invoker { get; set; }
 
-        public CustResult(TINPUT inputModel)
+
+        public CustResult(TINPUT inputModel, IInvoker invoker)
         {
             this.inputModel = inputModel;
+            this.Invoker = invoker;
         }
 
-        public CustResult<TINPUT, TRET> Returning<TRET>() 
+        public CustResult<TINPUT, TRET> Returning<TRET>()
         {
 
-            return new CustResult<TINPUT, TRET>(this.inputModel);
+            return new CustResult<TINPUT, TRET>(this.inputModel, this.Invoker);
         }
 
         public override void ExecuteResult(ControllerContext context)
@@ -38,10 +41,14 @@ namespace HandleActionRefactor.Controllers
     public class CustResult<TINPUT, TRET> : ActionResult
     {
         public TINPUT inputModel { get; set; }
+        public IInvoker Invoker { get; set; }
+        public Func<TRET, ActionResult> onSuccess;
+        public Func< ActionResult> onError;
 
-        public CustResult(TINPUT inputModel)
+        public CustResult(TINPUT inputModel, IInvoker invoker)
         {
             this.inputModel = inputModel;
+            this.Invoker = invoker;
         }
 
         public CustResult<TINPUT, TRET> On(Func<TRET, bool> inputFunction, Func<TRET, ActionResult> stuff)
@@ -51,17 +58,23 @@ namespace HandleActionRefactor.Controllers
 
         public CustResult<TINPUT, TRET> OnSuccess(Func<TRET, ActionResult> inputFunction)
         {
+            this.onSuccess = inputFunction;
             return this;
         }
 
         public CustResult<TINPUT, TRET> OnError(Func<ActionResult> inputFunction)
         {
+            this.onError = inputFunction;
             return this;
         }
 
         public override void ExecuteResult(ControllerContext context)
-        {
-            throw new System.NotImplementedException();
+        {   
+            //on success do this
+            var result = Invoker.Execute<TRET>(this.inputModel);
+            var actionresult = onSuccess(result);
+            actionresult.ExecuteResult(context);
+            
         }
     }
 }
