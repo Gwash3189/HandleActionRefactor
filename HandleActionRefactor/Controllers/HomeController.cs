@@ -15,7 +15,7 @@ namespace HandleActionRefactor.Controllers
         }
 
         [HttpPost]
-        public ActionResult Index(HomeInputModel inputModel)
+        public ActionResult Index2(HomeInputModel inputModel)
         {
             if (!ModelState.IsValid)
                 return Index();
@@ -27,15 +27,17 @@ namespace HandleActionRefactor.Controllers
             return RedirectToAction("Index");
         }
 
-        //[HttpPost]
-        //public ActionResult Index(HomeInputModel inputModel)
-        //{
-        //    return Handle(inputModel)
-        //        .Returning<HomeResponseModel>()
-        //        .On(x => x.GotoAbout, _ => RedirectToAction("About"))
-        //        .OnSuccess(_ => RedirectToAction("Index"))
-        //        .OnError(_ => Index());
-        //}
+        [HttpPost]
+        public ActionResult Index(HomeInputModel inputModel)
+        {
+            return Handle(inputModel)
+                .Returning<HomeResponseModel>()
+                .On(x => x.GotoAbout, _ => RedirectToAction("About"))
+                .OnSuccess(_ => RedirectToAction("Index"))
+                .OnError(() => Index());
+
+        }
+
 
         public ActionResult About()
         {
