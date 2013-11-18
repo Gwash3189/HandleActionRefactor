@@ -60,7 +60,8 @@ namespace HandleActionRefactor
                     y.WithDefaultConventions();
                     y.ConnectImplementationsToTypesClosing(typeof (IValidator<>));
                     y.ConnectImplementationsToTypesClosing(typeof (IHandler<>));
-                    y.ConnectImplementationsToTypesClosing(typeof (IHandler<,>));
+                    y.ConnectImplementationsToTypesClosing(typeof(IHandler<,>));
+                    y.ConnectImplementationsToTypesClosing(typeof(ICommandHandler<>));
                 });
                 x.For<IInvoker>().Use(sm => new Invoker(z => sm.TryGetInstance(z)));
                 x.FillAllPropertiesOfType<IInvoker>();

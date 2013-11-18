@@ -11,4 +11,14 @@ namespace HandleActionRefactor.Controllers
             return new HomeResponseModel();
         }
     }
+
+    public class CustomHomeInputHandler : ICommandHandler<HomeInputModel>
+    {
+
+        public void Handle(HomeInputModel command)
+        {
+        }
+    }
+
+
 }

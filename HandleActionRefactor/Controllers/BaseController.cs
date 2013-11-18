@@ -1,6 +1,8 @@
 ﻿using System.Web.Mvc;
 using SchoStack.Web;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace HandleActionRefactor.Controllers
 {
@@ -8,73 +10,164 @@ namespace HandleActionRefactor.Controllers
     {
         public IInvoker Invoker { get; set; }
 
-        public CustResult<TINPUT> Handle<TINPUT>(TINPUT inputModel)
+        public CustResult<TInputValue> Handle<TInputValue>(TInputValue inputModel)
         {
-            return new CustResult<TINPUT>(inputModel, this.Invoker);
+            return new CustResult<TInputValue>(inputModel, this.Invoker);
         }
     }
 
-    public class CustResult<TINPUT> : ActionResult
+    public class CustResult<TInputValue> : ActionResult
     {
-        public TINPUT inputModel { get; set; }
+        public TInputValue InputModel { get; set; }
         public IInvoker Invoker { get; set; }
+        private Func<ActionResult> OnSuccessFunction;
+        private Func<ActionResult> OnErrorFunction;
 
 
-        public CustResult(TINPUT inputModel, IInvoker invoker)
+        public CustResult(TInputValue inputModel, IInvoker invoker)
         {
-            this.inputModel = inputModel;
+            this.InputModel = inputModel;
             this.Invoker = invoker;
         }
 
-        public CustResult<TINPUT, TRET> Returning<TRET>()
+        public CustResult<TInputValue> OnError(Func<ActionResult> onerror)
         {
+            this.OnErrorFunction = onerror;
+            return this;
 
-            return new CustResult<TINPUT, TRET>(this.inputModel, this.Invoker);
+        }
+
+        public CustResult<TInputValue> OnSuccess(Func<ActionResult> onsuccess)
+        {
+            this.OnSuccessFunction = onsuccess;
+            return this;
+
+        }
+
+        public CustResult<TInputValue, TRET> Returning<TRET>()
+        {
+            if (this.OnErrorFunction != null)
+            {
+                return new CustResult<TInputValue, TRET>(this.InputModel, this.Invoker, this.OnErrorFunction);
+            }
+            else
+            {
+                return new CustResult<TInputValue, TRET>(this.InputModel, this.Invoker);
+            }
         }
 
         public override void ExecuteResult(ControllerContext context)
         {
-            throw new System.NotImplementedException();
+            if (!context.Controller.ViewData.ModelState.IsValid)
+            {
+                var actionresult = this.OnErrorFunction();
+                actionresult.ExecuteResult(context);
+            }
+            else
+            {
+                Invoker.Execute(this.InputModel);
+                var actionresult = OnSuccessFunction();
+                actionresult.ExecuteResult(context);
+            }
         }
     }
 
-    public class CustResult<TINPUT, TRET> : ActionResult
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public class CustResult<TInputValue, TReturnValue> : ActionResult
     {
-        public TINPUT inputModel { get; set; }
-        public IInvoker Invoker { get; set; }
-        public Func<TRET, ActionResult> onSuccess;
-        public Func< ActionResult> onError;
+        private TInputValue InputMode { get; set; }
+        private IInvoker Invoker { get; set; }
+        private Func<TReturnValue, ActionResult> OnSuccessFunction;
+        private Func<ActionResult> OnErrorFunction;
+        private List<ResultBag<TReturnValue>> ResultBagList;
 
-        public CustResult(TINPUT inputModel, IInvoker invoker)
+        public CustResult(TInputValue inputModel, IInvoker invoker)
         {
-            this.inputModel = inputModel;
+            this.InputMode = inputModel;
             this.Invoker = invoker;
+            this.ResultBagList = new List<ResultBag<TReturnValue>>();
+        }
+        
+        public CustResult(TInputValue inputModel, IInvoker invoker, Func<ActionResult> OnErrorFunction)
+        {
+            this.InputMode = inputModel;
+            this.Invoker = invoker;
+            this.ResultBagList = new List<ResultBag<TReturnValue>>();
+            this.OnErrorFunction = OnErrorFunction;
         }
 
-        public CustResult<TINPUT, TRET> On(Func<TRET, bool> inputFunction, Func<TRET, ActionResult> stuff)
+        public CustResult<TInputValue, TReturnValue> On(Func<TReturnValue, bool> propertyFunction, Func<TReturnValue, ActionResult> inputFunction)
         {
+            this.ResultBagList.Add(new ResultBag<TReturnValue>(propertyFunction, inputFunction));
             return this;
         }
 
-        public CustResult<TINPUT, TRET> OnSuccess(Func<TRET, ActionResult> inputFunction)
+        public CustResult<TInputValue, TReturnValue> OnSuccess(Func<TReturnValue, ActionResult> inputFunction)
         {
-            this.onSuccess = inputFunction;
+            this.OnSuccessFunction = inputFunction;
             return this;
         }
 
-        public CustResult<TINPUT, TRET> OnError(Func<ActionResult> inputFunction)
+        public CustResult<TInputValue, TReturnValue> OnError(Func<ActionResult> inputFunction)
         {
-            this.onError = inputFunction;
+            this.OnErrorFunction = inputFunction;
             return this;
         }
 
         public override void ExecuteResult(ControllerContext context)
-        {   
-            //on success do this
-            var result = Invoker.Execute<TRET>(this.inputModel);
-            var actionresult = onSuccess(result);
-            actionresult.ExecuteResult(context);
-            
+        {
+            if (!context.Controller.ViewData.ModelState.IsValid)
+            {
+                var actionresult = OnErrorFunction();
+                actionresult.ExecuteResult(context);
+            }
+            else
+            {
+                var result = Invoker.Execute<TReturnValue>(this.InputMode);
+
+                var q = this.ResultBagList.FirstOrDefault(x => x.OnTrue(result));
+                if (q != null)
+                {
+                    q.ExecuteIfTrue(result).ExecuteResult(context);
+                    return;
+                }
+
+                var actionresult = OnSuccessFunction(result);
+                actionresult.ExecuteResult(context);
+            }
+        }
+    }
+
+    public class ResultBag<T>
+    {
+        public Func<T, bool> OnTrue { get; set; }
+        public Func<T, ActionResult> ExecuteIfTrue { get; set; }
+
+        public ResultBag(Func<T, bool> ontruefunction, Func<T, ActionResult> executeiftruefunction)
+        {
+            this.OnTrue = ontruefunction;
+            this.ExecuteIfTrue = executeiftruefunction;
         }
     }
 }
